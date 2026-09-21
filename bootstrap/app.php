@@ -15,5 +15,12 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Everything under /api/* is a JSON API and must always respond
+        // with JSON — including validation failures and other errors —
+        // regardless of whether the client sends an Accept: application/json
+        // header. Without this, a client that omits that header (curl -F,
+        // for example) gets an HTML redirect instead of a 422.
+        $exceptions->shouldRenderJsonWhen(
+            fn ($request, $e) => $request->is('api/*') || $request->expectsJson()
+        );
     })->create();
