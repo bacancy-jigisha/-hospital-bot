@@ -44,10 +44,15 @@ class DocumentParserService
 
     private function normalizeWhitespace(string $text): string
     {
-        // pdfparser leaves runs of stray spaces between words and large
-        // gaps between paragraphs. Collapsing those to single spaces and
-        // blank-line pairs gives ChunkingService (Phase 4) clean paragraph
-        // boundaries to split on.
+        // Some PDF renderers pad a "blank" line with trailing spaces
+        // (justified text) instead of leaving it truly empty, so a
+        // whitespace-only line must be blanked out first — otherwise it
+        // never matches as a paragraph break below, or in ChunkingService.
+        $text = preg_replace('/^[ \t]+$/m', '', $text);
+
+        // Collapse runs of stray spaces/tabs and blank-line runs down to
+        // single spaces and blank-line pairs, giving ChunkingService clean
+        // paragraph boundaries to split on.
         $text = preg_replace('/[ \t]+/', ' ', $text);
         $text = preg_replace('/\n{3,}/', "\n\n", $text);
 
