@@ -1,0 +1,75 @@
+# Hospital Information Bot — conventions
+
+An agentic RAG chatbot for hospital visitor/patient questions. See
+`../hospital-bot-prompt.md` for the full build spec and phase plan; this file
+records the conventions actually settled on while building it, and is kept
+current as phases land.
+
+## Stack decisions (and why they differ from the spec's literal wording)
+
+- **Laravel 12**, not 13 — this machine runs PHP 8.2.27; Laravel 13 requires
+  PHP 8.3+. Revisit if the toolchain is ever upgraded.
+- **Vite 5.4.x**, not the newest major — Vite 8 requires Node 20.19+/22.12+;
+  this machine has Node 20.18.0.
+- **React 18.3.x**, pinned explicitly — `create-vite` defaults to React 19;
+  the spec calls for React 18.
+- **openai-php/laravel** (v0.21+) for the OpenAI integration — verified
+  against current docs/Packagist at Phase 0 time rather than assumed from
+  memory, per the spec's own instruction.
+- Backend dev server runs on **port 8001**, not 8000 — an unrelated project
+  on this machine already holds 8000.
+
+## Project layout
+
+- `app/` — standard Laravel structure: Controllers/Api, Requests, Resources,
+  Jobs, Models, Services, Services/Tools, Exceptions.
+- `frontend/` — separate React 18 + Vite SPA, its own `package.json`. No
+  Inertia, no Blade views, no `laravel-vite-plugin`. Talks to the backend
+  only via `frontend/src/api/*` (Axios), never by importing backend code.
+- `config/rag.php` — created when the RAG pipeline needs it (Phase 4+); all
+  RAG/OpenAI tuning knobs read from `.env`, never hardcoded.
+- `database/seeders/samples/hospital-handbook.pdf` — a real, text-extractable
+  (not scanned) sample PDF for manually exercising the upload → parse →
+  chunk → embed pipeline once it exists. It is **not** seeded into the
+  `documents` table — documents only ever enter that table through the real
+  upload endpoint, so the seeder doesn't bypass the pipeline it's meant to
+  demonstrate.
+
+## Data model
+
+Two kinds of data, kept deliberately separate:
+
+- **Knowledge base** (`documents`, `document_chunks`): free text from
+  uploaded PDFs, chunked and embedded, searched by `VectorSearchService`.
+- **Hospital records** (`departments`, `doctors`, `services`): structured
+  facts, seeded once by `HospitalSeeder`, queried directly by agent tools
+  (`find_doctors`, `get_department_info`, `list_services`,
+  `get_visiting_hours`). Never embedded — there's no ambiguity to resolve by
+  similarity search when the answer is a row lookup.
+
+`services.department_id` is nullable (some services, like the ambulance or
+the pathology lab, aren't tied to one department). `doctors.department_id`
+is required.
+
+Model casts of note: `DocumentChunk.embedding`, `Message.sources`,
+`Message.tool_trace`, and `Doctor.available_days` are all cast to `array`
+(stored as JSON columns).
+
+## Conventions
+
+- Controllers stay thin: Controller → FormRequest → Service → Model. No
+  repository layer — not needed at this scale.
+- Constructor injection throughout; no service locator calls.
+- Prefer obvious code over clever code — this is a learning project the
+  author needs to be able to explain end to end. Comment RAG/agent concepts
+  (chunk, embedding, vector search, tool calling, agent loop, grounding)
+  where they first appear in code, not everywhere.
+- No starter kits, no Breeze/Jetstream, no packages beyond what the spec
+  names (`smalot/pdfparser`, `openai-php/laravel`) plus whatever Laravel's
+  own installer adds (Sanctum ships with `install:api` by default).
+
+## Verifying each phase
+
+- Phase 1: `php artisan migrate:fresh --seed` — expect 6 departments, 12
+  doctors, 10 services, no errors.
+- Later phases: see the phase table in `../hospital-bot-prompt.md`.
