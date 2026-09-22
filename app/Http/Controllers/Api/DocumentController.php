@@ -15,6 +15,14 @@ class DocumentController extends Controller
         return DocumentResource::collection(Document::latest()->get());
     }
 
+    // Polled by the frontend every few seconds while any document is
+    // pending/processing. Same shape as index() — a separate route just
+    // makes the polling intent explicit in both the frontend and the logs.
+    public function status()
+    {
+        return DocumentResource::collection(Document::latest()->get());
+    }
+
     public function store(UploadDocumentRequest $request)
     {
         $file = $request->file('file');
@@ -34,6 +42,28 @@ class DocumentController extends Controller
             'chunk_count' => 0,
         ]);
 
+        $this->dispatchProcessing($document);
+
+        return (new DocumentResource($document))->response()->setStatusCode(201);
+    }
+
+    public function retry(Document $document)
+    {
+        if ($document->status !== 'failed') {
+            return response()->json([
+                'message' => 'Only a failed document can be retried.',
+            ], 422);
+        }
+
+        $document->update(['status' => 'pending', 'error_message' => null]);
+
+        $this->dispatchProcessing($document);
+
+        return new DocumentResource($document);
+    }
+
+    private function dispatchProcessing(Document $document): void
+    {
         try {
             ProcessDocumentJob::dispatch($document);
         } catch (\Throwable) {
@@ -42,18 +72,17 @@ class DocumentController extends Controller
             // (which already marked this document `failed` with a
             // user-safe message) but then re-throws the original
             // exception to the caller — there's no separate worker to own
-            // it silently. The upload itself still succeeded, so this is
-            // swallowed here rather than surfacing as a 500; the response
-            // below reports the real outcome. With a real queue this
-            // catch is simply never reached.
+            // it silently. The request itself still succeeded, so this is
+            // swallowed here rather than surfacing as a 500. With a real
+            // queue this catch is simply never reached.
         }
 
         // With QUEUE_CONNECTION=sync the job above already ran to
         // completion against a separate model instance (SerializesModels
-        // re-fetches it from the database) — refresh so the response
-        // reflects the real outcome instead of stale in-memory attributes.
-        // With a real queue this is a no-op; the row is still "pending"
-        // and the frontend picks up completion via polling.
-        return (new DocumentResource($document->refresh()))->response()->setStatusCode(201);
+        // re-fetches it from the database) — refresh so the caller sees
+        // the real outcome instead of stale in-memory attributes. With a
+        // real queue this is a no-op; the row is still "pending" and the
+        // frontend picks up completion via polling.
+        $document->refresh();
     }
 }

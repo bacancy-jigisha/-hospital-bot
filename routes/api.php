@@ -11,6 +11,8 @@ Route::get('/user', function (Request $request) {
 
 Route::get('/documents', [DocumentController::class, 'index']);
 Route::post('/documents', [DocumentController::class, 'store']);
+Route::get('/documents/status', [DocumentController::class, 'status']);
+Route::post('/documents/{document}/retry', [DocumentController::class, 'retry']);
 
 Route::post('/chat', [ChatController::class, 'send'])->middleware('throttle:20,1');
 Route::get('/chat/{sessionId}', [ChatController::class, 'history']);

@@ -79,6 +79,17 @@ documented, and confirmed to work with the newest models.
 explicitly for it (only `EmbeddingService` was), but added after live
 testing showed real transient 503s ("high demand") from this model.
 
+- **`frontend`'s `oxlint` doesn't run on this machine** — its native binding
+  has no build for Node 20.18 (the same Vite 5/Node 20.18 constraint from
+  Phase 0). Not a project-specified linter (Pint is, per the spec's rule
+  7), so this doesn't block anything; `vite build` is used instead to
+  catch real compile errors. Revisit if Node is ever upgraded.
+- Added `DocumentController::status()` and `retry()` at Phase 8 — not
+  built earlier since no prior phase's UI needed them, per "work one phase
+  at a time." `status()` is functionally identical to `index()`; the
+  separate route just makes the frontend's polling intent explicit.
+  `retry()` only allows retrying a `failed` document (422 otherwise).
+
 ## Project layout
 
 - `app/` — standard Laravel structure: Controllers/Api, Requests, Resources,

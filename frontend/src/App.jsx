@@ -1,28 +1,32 @@
-import { useEffect, useState } from 'react'
+import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom'
+import ChatPage from './pages/ChatPage'
+import DocumentsPage from './pages/DocumentsPage'
+
+const linkStyle = ({ isActive }) => ({
+  padding: '8px 16px',
+  textDecoration: 'none',
+  color: isActive ? '#111827' : '#6b7280',
+  fontWeight: isActive ? 600 : 400,
+  borderBottom: isActive ? '2px solid #3b82f6' : '2px solid transparent',
+})
 
 function App() {
-  const [status, setStatus] = useState('loading')
-  const [message, setMessage] = useState(null)
-
-  useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_BASE_URL}/ping`)
-      .then((res) => res.json())
-      .then((body) => {
-        setMessage(body.data.message)
-        setStatus('ok')
-      })
-      .catch(() => setStatus('error'))
-  }, [])
-
   return (
-    <main style={{ fontFamily: 'sans-serif', padding: '2rem' }}>
-      <h1>Hospital Bot — Phase 0</h1>
-      {status === 'loading' && <p>Calling /api/ping…</p>}
-      {status === 'ok' && <p>Backend responded: "{message}"</p>}
-      {status === 'error' && (
-        <p>Could not reach the backend. Is `php artisan serve` running?</p>
-      )}
-    </main>
+    <BrowserRouter>
+      <nav style={{ display: 'flex', borderBottom: '1px solid #e5e7eb' }}>
+        <NavLink to="/" end style={linkStyle}>
+          Chat
+        </NavLink>
+        <NavLink to="/documents" style={linkStyle}>
+          Documents
+        </NavLink>
+      </nav>
+
+      <Routes>
+        <Route path="/" element={<ChatPage />} />
+        <Route path="/documents" element={<DocumentsPage />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
