@@ -1,59 +1,177 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Hospital Information Bot
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+An agentic RAG chatbot that answers visitor and patient questions about a
+hospital — departments, doctors, services, visiting hours, admission and
+discharge — grounded in the hospital's own uploaded documents and records.
+Laravel 12 API backend + a separate React 18 SPA frontend.
 
-## About Laravel
+> This README covers **setup and day-to-day usage**. For *why* things are
+> built the way they are (stack decisions, provider switches, bugs found
+> and fixed along the way), see [`CLAUDE.md`](CLAUDE.md). A fuller
+> beginner-friendly explanation of RAG/agent concepts, diagrams, and
+> worked examples is planned but not yet written.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Prerequisites
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- PHP 8.2+, Composer
+- Node 20+, npm
+- MySQL
+- A free Gemini API key from [Google AI Studio](https://aistudio.google.com/)
+  (no billing required)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Redis is optional — the app defaults to a `sync` queue so it works without
+it. See [Queue](#queue) below.
 
-## Learning Laravel
+## Backend setup
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+```bash
+cd hospital-bot
+composer install
+cp .env.example .env
+php artisan key:generate
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Edit `.env`:
+- Set `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` for a MySQL database you've
+  created (e.g. `CREATE DATABASE hospital_bot;`).
+- Set `GEMINI_API_KEY` to your key from Google AI Studio.
+- Set `HOSPITAL_NAME`, `HOSPITAL_RECEPTION_PHONE`, `HOSPITAL_EMERGENCY_PHONE`
+  (any values — this is a fictional demo hospital).
 
-## Laravel Sponsors
+Then:
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+```bash
+php artisan migrate --seed   # creates tables + seeds 6 departments, 12 doctors, 10 services
+php artisan serve --port=8001
+```
 
-### Premium Partners
+The API is now at `http://127.0.0.1:8001/api`.
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+> **Port 8001, not 8000:** this project's dev environment already had
+> something else on 8000. Use whatever port is free on yours — just keep
+> the frontend's `VITE_API_BASE_URL` (below) pointing at it.
 
-## Contributing
+## Frontend setup
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+cd hospital-bot/frontend
+npm install
+cp .env.example .env   # if present, otherwise create it — see below
+```
 
-## Code of Conduct
+`frontend/.env`:
+```
+VITE_API_BASE_URL=http://localhost:8001/api
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Then:
 
-## Security Vulnerabilities
+```bash
+npm run dev
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+The app is now at `http://localhost:5173`.
 
-## License
+> **CORS:** `config/cors.php` on the backend only allows
+> `http://localhost:5173` by default. If you run the frontend on a
+> different port, update that file too.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Running it day to day
+
+Two processes, both from `hospital-bot/`:
+
+```bash
+php artisan serve --port=8001   # backend
+```
+```bash
+cd frontend && npm run dev      # frontend, separate terminal
+```
+
+A third process (`php artisan queue:work`) is only needed if you switch
+`QUEUE_CONNECTION` to `redis` — see [Queue](#queue).
+
+## Using the app
+
+1. Open `http://localhost:5173/documents`.
+2. Upload a PDF — the repo includes a ready-made sample:
+   `database/seeders/samples/hospital-handbook.pdf`. Give it a title and
+   category, and upload.
+3. Its status goes `pending` → `completed` automatically (with the default
+   `sync` queue, almost instantly). "Chunks" shows how many pieces it was
+   split into.
+4. Open `http://localhost:5173/` (Chat) and ask something the handbook or
+   seeded data covers, e.g.:
+   - *"What are the visiting hours?"*
+   - *"What should I bring when I'm admitted?"*
+   - *"Which doctors specialize in cardiology?"*
+5. Expand **"How this answer was produced"** under an answer to see which
+   tool(s) the agent called and the similarity scores of any retrieved
+   document chunks.
+6. Try something outside the knowledge base (e.g. *"Do you offer valet
+   parking?"*) — it should say the information wasn't found, not invent
+   an answer. Try something like *"I have chest pain"* — it should reply
+   instantly with the emergency number, without calling the AI model at
+   all.
+
+## Environment variables
+
+All RAG/agent config lives in `config/rag.php` and `config/gemini.php`,
+both reading from `.env` — nothing is hardcoded.
+
+| Variable | Meaning |
+| --- | --- |
+| `GEMINI_API_KEY` | Your Google AI Studio key |
+| `GEMINI_EMBEDDING_MODEL` | Model used to embed text for search (default `gemini-embedding-001`) |
+| `GEMINI_CHAT_MODEL` | Model used for chat/tool-calling (default `gemini-3.5-flash-lite` — see `CLAUDE.md` for why not the newest model) |
+| `RAG_CHUNK_SIZE` | Target characters per document chunk (default `1000`) |
+| `RAG_CHUNK_OVERLAP` | Characters carried from one chunk into the next (default `200`) |
+| `RAG_TOP_K` | Max chunks returned per search (default `5`) |
+| `RAG_MIN_SIMILARITY` | Minimum cosine similarity to keep a chunk (default `0.55` — tuned empirically, see `CLAUDE.md`) |
+| `AGENT_MAX_STEPS` | Max tool-calling rounds before forcing a final answer (default `5`) |
+| `HOSPITAL_NAME` / `HOSPITAL_RECEPTION_PHONE` / `HOSPITAL_EMERGENCY_PHONE` | Used in the system prompt and emergency responses |
+| `QUEUE_CONNECTION` | `sync` (default, no worker needed) or `redis` (needs `php artisan queue:work`) |
+
+## Queue
+
+Document processing (parse → chunk → embed → save) runs through
+`ProcessDocumentJob`. By default `QUEUE_CONNECTION=sync` runs it inline —
+simplest for local use, no extra process. If you have Redis installed:
+
+```env
+QUEUE_CONNECTION=redis
+```
+```bash
+php artisan queue:work
+```
+
+## Useful commands for manually inspecting the pipeline
+
+These print intermediate pipeline output directly to the terminal — handy
+for seeing exactly what's happening at each stage, independent of the API:
+
+```bash
+php artisan document:parse {id}    # extracted text + page count for a document
+php artisan document:chunk {id}    # chunk count + first two chunks
+php artisan rag:search "some question"   # matching chunks with similarity scores
+```
+
+## Tests and linting
+
+```bash
+php artisan test        # backend feature/unit tests
+./vendor/bin/pint       # backend code style
+cd frontend && npm run build   # frontend compile check
+```
+
+## Known limitations
+
+- No authentication — a chat session is a client-generated UUID in
+  `localStorage`. Add Laravel Sanctum before exposing this beyond a
+  laptop.
+- No OCR — a scanned PDF (no text layer) is rejected, not processed.
+- Single language, brute-force vector search (fine at this scale; see
+  `VectorSearchService`'s docblock for the tradeoff), naive
+  paragraph-based chunking, no evaluation harness for retrieval quality.
+
+See `CLAUDE.md` for the fuller list of decisions, gotchas, and why things
+differ from the original build spec (`../hospital-bot-prompt.md`).
