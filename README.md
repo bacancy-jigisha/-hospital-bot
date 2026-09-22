@@ -172,6 +172,3 @@ cd frontend && npm run build   # frontend compile check
 - Single language, brute-force vector search (fine at this scale; see
   `VectorSearchService`'s docblock for the tradeoff), naive
   paragraph-based chunking, no evaluation harness for retrieval quality.
-
-See `CLAUDE.md` for the fuller list of decisions, gotchas, and why things
-differ from the original build spec (`../hospital-bot-prompt.md`).
