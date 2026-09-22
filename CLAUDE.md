@@ -25,6 +25,15 @@ current as phases land.
   `openai-php/laravel` was removed since nothing uses it.
 - Backend dev server runs on **port 8001**, not 8000 — an unrelated project
   on this machine already holds 8000.
+- **`RAG_MIN_SIMILARITY=0.55`, not the spec's literal `0.35`** — tuned at
+  Phase 6 for `gemini-embedding-001`'s actual score distribution rather than
+  reusing a value chosen for OpenAI's. On the sample handbook, on-topic
+  queries scored ~0.64-0.66 cosine similarity; a clearly off-topic query
+  ("how do I bake a chocolate cake") still scored 0.48 — too close to trust
+  0.35 as a cutoff. This is a single small manual test, not a real eval set
+  (the spec's own "no evaluation harness" limitation applies directly here)
+  — revisit if real usage shows too many false "not found"s or too many
+  ungrounded matches.
 
 ## Project layout
 
