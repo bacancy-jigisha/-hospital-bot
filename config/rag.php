@@ -4,17 +4,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | OpenAI models
+    | Gemini models
     |--------------------------------------------------------------------------
     |
-    | Which OpenAI model to call for embeddings vs. chat completions. Kept
-    | separate from config/openai.php (the API client's own connection
-    | config — key, org, base URL) since these are RAG-specific choices, not
-    | connection details.
+    | Which Gemini model to call for embeddings vs. chat completions. See
+    | config/gemini.php for the API connection details (key, base URL).
     */
 
-    'embedding_model' => env('OPENAI_EMBEDDING_MODEL'),
-    'chat_model' => env('OPENAI_CHAT_MODEL'),
+    'embedding_model' => env('GEMINI_EMBEDDING_MODEL'),
+    'chat_model' => env('GEMINI_CHAT_MODEL'),
 
     /*
     |--------------------------------------------------------------------------

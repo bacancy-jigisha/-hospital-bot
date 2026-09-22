@@ -13,9 +13,16 @@ current as phases land.
   this machine has Node 20.18.0.
 - **React 18.3.x**, pinned explicitly — `create-vite` defaults to React 19;
   the spec calls for React 18.
-- **openai-php/laravel** (v0.21+) for the OpenAI integration — verified
-  against current docs/Packagist at Phase 0 time rather than assumed from
-  memory, per the spec's own instruction.
+- **Google Gemini, not OpenAI**, for embeddings and (from Phase 7) chat —
+  changed at Phase 5. The spec names OpenAI, but the available OpenAI key
+  had no usable quota (429 on every request, even after retries), and the
+  author asked to switch to a free Google AI Studio key instead. There's no
+  dominant first-party Gemini PHP SDK, so `EmbeddingService` (and later
+  `LlmService`) call the REST API directly via Laravel's `Http` client —
+  see `config/gemini.php` (connection) and `config/rag.php` (model names,
+  read from `GEMINI_EMBEDDING_MODEL` / `GEMINI_CHAT_MODEL`). Embedding model
+  verified against current Gemini docs at switch time: `gemini-embedding-001`.
+  `openai-php/laravel` was removed since nothing uses it.
 - Backend dev server runs on **port 8001**, not 8000 — an unrelated project
   on this machine already holds 8000.
 
@@ -27,7 +34,8 @@ current as phases land.
   Inertia, no Blade views, no `laravel-vite-plugin`. Talks to the backend
   only via `frontend/src/api/*` (Axios), never by importing backend code.
 - `config/rag.php` — created when the RAG pipeline needs it (Phase 4+); all
-  RAG/OpenAI tuning knobs read from `.env`, never hardcoded.
+  RAG tuning knobs read from `.env`, never hardcoded. `config/gemini.php`
+  (Phase 5+) holds the Gemini API connection details separately.
 - `database/seeders/samples/hospital-handbook.pdf` — a real, text-extractable
   (not scanned) sample PDF for manually exercising the upload → parse →
   chunk → embed pipeline once it exists. It is **not** seeded into the
@@ -65,8 +73,10 @@ Model casts of note: `DocumentChunk.embedding`, `Message.sources`,
   (chunk, embedding, vector search, tool calling, agent loop, grounding)
   where they first appear in code, not everywhere.
 - No starter kits, no Breeze/Jetstream, no packages beyond what the spec
-  names (`smalot/pdfparser`, `openai-php/laravel`) plus whatever Laravel's
-  own installer adds (Sanctum ships with `install:api` by default).
+  names (`smalot/pdfparser`) plus whatever Laravel's own installer adds
+  (Sanctum ships with `install:api` by default). Gemini is called via
+  Laravel's own `Http` client, not a third-party SDK — see the Gemini note
+  above.
 
 ## Verifying each phase
 
