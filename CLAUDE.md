@@ -34,6 +34,50 @@ current as phases land.
   (the spec's own "no evaluation harness" limitation applies directly here)
   — revisit if real usage shows too many false "not found"s or too many
   ungrounded matches.
+- **`GEMINI_CHAT_MODEL=gemini-3.5-flash-lite`, not the newest `gemini-3.8-flash`**
+  — found at Phase 7 via a live 429: `gemini-3.8-flash`'s free tier allows
+  only **20 requests/day** per project (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`),
+  exhausted almost immediately during development. `gemini-3.5-flash-lite`
+  is explicitly documented as optimized for agentic/tool-calling workloads
+  and has a 500/day free quota — 25x more headroom. Quotas are tracked
+  per-model, so this is a config change only, no code impact.
+
+### Gemini function-calling gotchas (generateContent API)
+
+Three real, non-obvious protocol requirements found only by making live
+calls and reading the actual error bodies — not documented clearly enough
+anywhere to have caught them by reading first (see `LlmService`):
+
+1. **`functionResponse.response` must be a JSON object, not an array.**
+   Several tools return a plain list (e.g. search results). Sending that
+   list directly as `response` fails with *"Proto field is not repeating,
+   cannot start list"* — it must be wrapped, e.g. `{"result": [...]}`.
+2. **`functionCall.args` must also be an object, even when empty.** PHP's
+   `[]` is ambiguous between JSON `{}` and `[]`; a tool called with no
+   arguments needs `(object) $arguments` before encoding, or the same
+   "cannot start list" error occurs.
+3. **Gemini 3.x models require a `thoughtSignature` to be echoed back.**
+   The model attaches a `thoughtSignature` string as a *sibling* of
+   `functionCall` in its response `part` (not nested inside it). When that
+   assistant turn is replayed in a later request (after executing the
+   tool), the exact same `thoughtSignature` must be included as a sibling
+   field again, or the request is rejected outright: *"Function call is
+   missing a thought_signature in functionCall parts."* Confirmed by
+   inspecting Gemini's actual raw JSON response directly — official doc
+   pages on this were inconsistent/incomplete when fetched.
+
+Also chose `generateContent` (function calling marked "Legacy" in current
+docs) over Google's newer **Interactions API**: the Interactions API's
+docs were inconsistent across fetches (even contradicting itself on
+whether `temperature` exists) and it's built around server-side state
+(`previous_interaction_id`), which fits poorly with this project's
+explicit requirement to self-manage the "last 6 messages" window and
+build our own `tool_trace`. `generateContent` is stable, thoroughly
+documented, and confirmed to work with the newest models.
+
+`LlmService` retries 429/5xx up to 3 times with backoff — not spec'd
+explicitly for it (only `EmbeddingService` was), but added after live
+testing showed real transient 503s ("high demand") from this model.
 
 ## Project layout
 

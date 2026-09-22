@@ -66,4 +66,28 @@ return [
     'reception_phone' => env('HOSPITAL_RECEPTION_PHONE'),
     'emergency_phone' => env('HOSPITAL_EMERGENCY_PHONE'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Emergency keyword screen
+    |--------------------------------------------------------------------------
+    |
+    | EmergencyDetector checks the incoming message against this list before
+    | the agent loop runs at all. A false positive here costs nothing (the
+    | visitor just sees the emergency number); a false negative could mean
+    | someone in a real emergency waits on an LLM call instead of being told
+    | to get help immediately — so this is a deterministic keyword match,
+    | not a judgment call left to the model.
+    */
+
+    'emergency_keywords' => [
+        'chest pain',
+        'bleeding heavily',
+        'unconscious',
+        'stroke',
+        "can't breathe",
+        'cant breathe',
+        'overdose',
+        'suicide',
+    ],
+
 ];
