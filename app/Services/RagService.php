@@ -43,6 +43,11 @@ class RagService
             ->take(self::HISTORY_LIMIT)
             ->get()
             ->reverse()
+            // reverse() keeps each item's original key, so the resulting
+            // keys are out of order (e.g. 5,4,3,2,1,0) — json_encode then
+            // emits a JSON object instead of an array. values() reindexes
+            // to a clean 0..n-1 before this becomes the request body.
+            ->values()
             ->map(fn (Message $message) => ['role' => $message->role, 'content' => $message->content])
             ->all();
 

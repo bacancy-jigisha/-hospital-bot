@@ -65,6 +65,19 @@ anywhere to have caught them by reading first (see `LlmService`):
    missing a thought_signature in functionCall parts."* Confirmed by
    inspecting Gemini's actual raw JSON response directly — official doc
    pages on this were inconsistent/incomplete when fetched.
+4. **A PHP array's integer keys must be sequential from 0, or `contents`
+   silently becomes a JSON object.** Found via real multi-turn browser
+   testing at Phase 8 (a second message in the same conversation, once
+   history is non-empty): `Collection::reverse()` keeps each item's
+   *original* key, so `->get()->reverse()->map(...)->all()` produces
+   e.g. `[5=>...,4=>...,...,0=>...]`. `json_encode` only emits a JSON
+   array for canonically-ordered integer keys 0..n-1 — anything else
+   becomes `{"5":...,"4":...}`, which Gemini rejects as an unknown field
+   at every numeric "name". Fixed with `->values()` in `RagService`, and
+   a defensive `array_values()` around `contents` in `LlmService` itself
+   — the third distinct case of a PHP array not mapping cleanly to
+   Gemini's strict JSON typing, so the guard belongs at the API
+   boundary, not trusted to every caller.
 
 Also chose `generateContent` (function calling marked "Legacy" in current
 docs) over Google's newer **Interactions API**: the Interactions API's

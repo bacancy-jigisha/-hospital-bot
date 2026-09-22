@@ -42,7 +42,13 @@ class LlmService
         $model = config('rag.chat_model');
 
         $body = [
-            'contents' => $this->toGeminiContents($messages),
+            // array_values() guards against PHP arrays whose integer keys
+            // are non-sequential (e.g. a reversed Collection keeps each
+            // item's original key) — json_encode then emits a JSON object
+            // instead of an array, which Gemini rejects outright. This is
+            // the boundary to Gemini's strict JSON typing, so the guard
+            // lives here rather than trusting every caller.
+            'contents' => array_values($this->toGeminiContents($messages)),
             'systemInstruction' => ['parts' => [['text' => $systemPrompt]]],
             'generationConfig' => ['temperature' => self::TEMPERATURE],
         ];
